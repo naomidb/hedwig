@@ -7,4 +7,4 @@ MarkupSafe==1.0
 PyYAML==3.12
 requests==2.18.4
 urllib3==1.22
-vivo-utils==0.1
+https://github.com/naomidb/vivo_utils/archive/develop.zip
