@@ -20,13 +20,13 @@ import yaml
 from vivo_utils import queries
 from vivo_utils.publication import Publication
 from vivo_utils.vdos.auth_match import Auth_Match
-from vivo_utils.vivo_connect import Connection
+from vivo_utils.connections.vivo_connect import Connection
 from vivo_utils import vivo_log
 from vivo_utils.triple_handler import TripleHandler
 from vivo_utils.update_log import UpdateLog
 
-from vivo_utils.wos_connect import WOSnnection
-from vivo_utils.wos_handler import WHandler
+from vivo_utils.connections.wos_connect import WOSnnection
+from vivo_utils.handlers.wos_handler import WHandler
 
 # import wos
 # import daily_prophet
@@ -230,9 +230,10 @@ def main(args):
     query_endpoint = config.get('query_endpoint')
     vivo_url = config.get('upload_url')
     wos_login = config.get('wos_credentials')
+    db_name = config.get('database')
 
     connection = Connection(vivo_url, email, password, update_endpoint, query_endpoint)
-    vivo_log.update_db(connection)
+    vivo_log.update_db(connection, db_name)
     whandler = WHandler(wos_login)
     now = datetime.datetime.now()
 
