@@ -12,7 +12,7 @@ folder_for_logs: 'data_out/'
 
 wos_credentials: '"Username:Password" encoded in base 64'
 
-database: 'db_name'
+database: 'db_name.db'
 database_port: 'db_port'
 database_user: 'db_user'
 database_pw: 'db_password'
