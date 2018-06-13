@@ -19,7 +19,6 @@ import datetime
 import yaml
 
 from vivo_utils import queries
-from vivo_utils.vdos.auth_match import Auth_Match
 from vivo_utils.connections.vivo_connect import Connection
 from vivo_utils import vivo_log
 from vivo_utils.triple_handler import TripleHandler
@@ -59,9 +58,31 @@ def make_folders(top_folder, sub_folders=None):
 
     return top_folder
 
-def process(connection, publication, added_authors, tripler, ulog, db_name):
+def check_filter(abbrev_filter, name_filter, name):
+    cleanfig = get_config(abbrev_filter)
+    abbrev_table = cleanfig.get('abbrev_table')
+    name += " " #Add trailing space
+    name = name.replace('\\', '')
+    for abbrev in abbrev_table:
+        if (abbrev) in name:
+            name = name.replace(abbrev, abbrev_table[abbrev])
+    name = name[:-1] #Remove final space
+
+    namefig = get_config(name_filter)
+    try:
+        if name.upper() in namefig.keys():
+            name = namefig.get(name.upper())
+    except AttributeError as e:
+        name = name
+
+    return name
+
+def process(connection, publication, added_authors, tripler, ulog, db_name, filter_folder):
+    abbrev_filter = os.path.join(filter_folder, 'general_filter.yaml')
     publisher_n = None
     if publication.publisher:
+        p_filter = os.path.join(filter_folder, 'publisher_filter.yaml')
+        publication.publisher = check_filter(abbrev_filter, p_filter, publication.publisher)
         publisher_matches = vivo_log.lookup(db_name, 'publishers', publication.publisher, 'name')
         if len(publisher_matches) == 0:
             publisher_matches = vivo_log.lookup(db_name, 'publishers', publication.publisher, 'name', True)
@@ -82,6 +103,8 @@ def process(connection, publication, added_authors, tripler, ulog, db_name):
 
     journal_n = None
     if publication.journal:
+        j_filter = os.path.join(filter_folder, 'journal_filter.yaml')
+        publication.journal = check_filter(abbrev_filter, j_filter, publication.journal)
         journal_matches = vivo_log.lookup(db_name, 'journals', publication.journal, 'name')
         if len(journal_matches) == 0:
             journal_matches = vivo_log.lookup(db_name, 'journals', publication.journal, 'name', True)
@@ -162,6 +185,7 @@ def add_pub(connection, publication, journal_n, tripler, ulog, db_name):
             tripler.update(query_type, **pub_params)
             pub_n = pub_params['Article'].n_number
             ulog.add_to_log('articles', publication.title, (connection.vivo_url + pub_n))
+            ulog.add_citation(publication, (connection.vivo_url + pub_n))
 
         if len(publication_matches) > 1:
             pub_n_list = []
@@ -232,12 +256,13 @@ def main(args):
     query_endpoint = config.get('query_endpoint')
     vivo_url = config.get('upload_url')
     wos_login = config.get('wos_credentials')
+    filter_folder = config.get('filter_folder')
 
     db_name = '/tmp/vivo_temp_storage.db'
 
     connection = Connection(vivo_url, email, password, update_endpoint, query_endpoint)
     vivo_log.update_db(connection, db_name)
-    whandler = WHandler(wos_login)
+    whandler = WHandler(wos_login, False)
     now = datetime.datetime.now()
 
     if args[_bibtex]:
@@ -260,15 +285,17 @@ def main(args):
     output_file = os.path.join(full_path, (timestamp + '_wos_output_file.txt'))
     upload_file = os.path.join(full_path, (timestamp + '_wos_upload_log.txt'))
     skips_file = os.path.join(full_path, (timestamp + '_wos_skips_.json'))
+    citations_file = os.path.join(full_path, (timestamp + '_wos_citations_.txt'))
     
     tripler = TripleHandler(args[_api], connection, output_file)
     ulog = UpdateLog()
 
     added_authors = {}
     for publication in publications:
-        process(connection, publication, added_authors, tripler, ulog, db_name)
+        process(connection, publication, added_authors, tripler, ulog, db_name, filter_folder)
 
-    file_made = ulog.create_file(upload_file)
+    upload_file_made = ulog.create_file(upload_file)
+    citation_file_made = ulog.create_citation_file(citations_file)
     ulog.write_skips(skips_file)
     ulog.write_disam_file(disam_file)
 
